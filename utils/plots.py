@@ -458,6 +458,11 @@ def plot_skeleton_kpts(im, kpts, steps, orig_shape=None):
                 [7, 13], [6, 7], [6, 8], [7, 9], [8, 10], [9, 11], [2, 3],
                 [1, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5, 7]]
 
+    kpt_names = ['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear', 'left_shoulder', 'right_shoulder',
+                'left_elbow', 'right_elbow', 'left_wrist', 'right_writst', 'left_whip', 'right_whip', 'left_knee',
+                'right_knee', 'left_foot', 'right_foot']
+
+
     pose_limb_color = palette[[9, 9, 9, 9, 7, 7, 7, 0, 0, 0, 0, 0, 16, 16, 16, 16, 16, 16, 16]]
     pose_kpt_color = palette[[16, 16, 16, 16, 16, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9]]
     radius = 5
@@ -472,6 +477,7 @@ def plot_skeleton_kpts(im, kpts, steps, orig_shape=None):
                 if conf < 0.5:
                     continue
             cv2.circle(im, (int(x_coord), int(y_coord)), radius, (int(r), int(g), int(b)), -1)
+            cv2.putText(im, kpt_names[kid], (int(x_coord), int(y_coord)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), 1, cv2.LINE_AA)
 
     for sk_id, sk in enumerate(skeleton):
         r, g, b = pose_limb_color[sk_id]
