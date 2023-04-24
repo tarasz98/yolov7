@@ -152,7 +152,7 @@ def pose_estimation_camera(model):
 
     new_frame_time = 0
     prev_frame_time = 0
-    frame_count = 0 
+    frame_count = 2 
     fps = []
     while True:
         frame_count += 1
@@ -164,26 +164,35 @@ def pose_estimation_camera(model):
             if len(fps) > 10:
                 fps = fps[-10:]
 
-            if frame_count % 2 == 0:
+            if frame_count % 3 == 0:
                 # Take the frame and run it through the model
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 output, frame = run_inference(model, frame)
+                inference_output = output
+                inference_frame = frame
                 frame, kpts = draw_keypoints(model, output, frame)
 
                 # NOTE: The distance actually will be given by the LiDAR
                 for _, kpt in enumerate(kpts):
                     looking_front = person_front_detection(kpt)
                     draw_label(kpt, looking_front, frame)
+            if frame_count % 3 != 0:
+                frame, kpts = draw_keypoints(model, inference_output, inference_frame)
 
-            if frame_count % 2 != 0:
-                frame = letterbox(frame, 960, stride=64, auto=True)[0]
+                # NOTE: The distance actually will be given by the LiDAR
+                for _, kpt in enumerate(kpts):
+                    looking_front = person_front_detection(kpt)
+                    draw_label(kpt, looking_front, frame)
 
-            # FPS count    
+            # Draw FPS count    
             prev_frame_time = new_frame_time
-            print(fps)
             av_fps = str(int(np.floor(np.mean(fps))))
             cv2.putText(frame, f"FPS: {av_fps}", (7,70), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (100,255,0), 3, cv2.LINE_AA)
             
+            # Restart frmae_count
+            if frame_count > 1000:
+                frame_count = 2
+
             # Show video
             cv2.imshow('Pose Estimation', frame)
         else:
