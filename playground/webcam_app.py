@@ -19,9 +19,10 @@ import numpy as np
 
 parser = argparse.ArgumentParser(prog='TestYOLOPose',
                                  description='Test the Yolo Pose model.')
-parser.add_argument('-i', '--image', type=bool, default=False)
-parser.add_argument('-v', '--video', type=bool, default=False)
-parser.add_argument('-c' ,'--camera', type=bool, default=False)
+parser.add_argument('-i', '--image', nargs='?', type=str, const="playground/robot_image.png")
+parser.add_argument('-v', '--video', nargs='?', type=str, const="playground/robot_video.mp4")
+parser.add_argument('-c' ,'--camera',nargs='?', type=bool, const=True, default=False)
+parser.add_argument('-t', '--test_arg', nargs='?', const=True, default=False)
 args = parser.parse_args()
 
 
@@ -115,14 +116,15 @@ def pose_estimation_video(model, filename):
     while cap.isOpened():
         (ret, frame) = cap.read()
         if ret:
-            # Take the frame and run it through the model
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            output, frame = run_inference(model, frame)
-            frame, kpts = draw_keypoints(model, output, frame)
             # Calculate the fps
             new_frame_time = time.time()
             fps = 1/(new_frame_time - prev_frame_time)
 
+            # Take the frame and run it through the model
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            output, frame = run_inference(model, frame)
+            frame, kpts = draw_keypoints(model, output, frame)
+            
             # Display if people are looking at the camera or not
             for _, kpt in enumerate(kpts):
                 looking_front = person_front_detection(kpt)
@@ -151,28 +153,37 @@ def pose_estimation_camera(model):
     new_frame_time = 0
     prev_frame_time = 0
     frame_count = 0 
+    fps = []
     while True:
         frame_count += 1
         (ret, frame) = cap.read()
         if ret:
-            # Take the frame and run it through the model
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            output, frame = run_inference(model, frame)
-            frame, kpts = draw_keypoints(model, output, frame)
             # Calculate the fps
             new_frame_time = time.time()
-            fps = 1/(new_frame_time - prev_frame_time)
+            fps.append(1/(new_frame_time - prev_frame_time))
+            if len(fps) > 10:
+                fps = fps[-10:]
 
-            # NOTE: The distance actually will be given by the LiDAR
-            for _, kpt in enumerate(kpts):
-                looking_front = person_front_detection(kpt)
-                draw_label(kpt, looking_front, frame)
+            if frame_count % 2 == 0:
+                # Take the frame and run it through the model
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                output, frame = run_inference(model, frame)
+                frame, kpts = draw_keypoints(model, output, frame)
+
+                # NOTE: The distance actually will be given by the LiDAR
+                for _, kpt in enumerate(kpts):
+                    looking_front = person_front_detection(kpt)
+                    draw_label(kpt, looking_front, frame)
+
+            if frame_count % 2 != 0:
+                frame = letterbox(frame, 960, stride=64, auto=True)[0]
 
             # FPS count    
             prev_frame_time = new_frame_time
-            fps = str(int(fps))
-            cv2.putText(frame, fps, (7,70), cv2.FONT_HERSHEY_SIMPLEX, 2, (100,255,0), 3, cv2.LINE_AA)
-
+            print(fps)
+            av_fps = str(int(np.floor(np.mean(fps))))
+            cv2.putText(frame, f"FPS: {av_fps}", (7,70), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (100,255,0), 3, cv2.LINE_AA)
+            
             # Show video
             cv2.imshow('Pose Estimation', frame)
         else:
@@ -197,16 +208,20 @@ def person_front_detection(kpts):
     # If no (or some) face keypoints are visible, then the person must be giving the back to the robot.¨
 
     vote_front = 0
-    if kpts[0*3 + 2] > 0.5:
-        vote_front += 1
-    if kpts[1*3 + 2] > 0.5: # Confidence of the left eye more than 0.5
-        vote_front += 1
-    if kpts[2*3 + 2] > 0.5:
-        vote_front += 1
-    if kpts[3*3 + 2] > 0.5:
-        vote_front += 1
-    if kpts[4*3 + 2] > 0.5:
-        vote_front += 1
+    for i in range(5):
+        if kpts[i*3 + 2] > 0.5:
+            vote_front += 1
+    
+    # if kpts[0*3 + 2] > 0.5:
+    #     vote_front += 1
+    # if kpts[1*3 + 2] > 0.5: # Confidence of the left eye more than 0.5
+    #     vote_front += 1
+    # if kpts[2*3 + 2] > 0.5:
+    #     vote_front += 1
+    # if kpts[3*3 + 2] > 0.5:
+    #     vote_front += 1
+    # if kpts[4*3 + 2] > 0.5:
+    #     vote_front += 1
     
     # check the votes
     if vote_front >= 4:
@@ -234,12 +249,20 @@ def main():
     # Load the model
     model = load_model()
 
-    if args.image:
-        pose_estimation_image(model, "playground/robot_image.png")
-    elif args.video:
-        pose_estimation_video(model, "playground/robot_video.mp4")
+    if args.image != None:
+        print(args.image)
+        pose_estimation_image(model, args.image)
+    elif args.video != None:
+        pose_estimation_video(model, args.video)
     elif args.camera:
         pose_estimation_camera(model)
+    elif args.test_arg:
+        print("Arguments available:")
+        print(args.image)
+        print(args.video)
+        print(args.camera)
+        print(args.test_arg)
+
 
 
 
