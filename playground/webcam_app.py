@@ -110,9 +110,19 @@ def pose_estimation_image(model, image_path):
     plt.show()
 
 def pose_estimation_video(model, filename):
+    # Create object to read from video
     cap = cv2.VideoCapture(filename)
+
+    # Initialize values for FPS calculation
     new_frame_time = 0
     prev_frame_time = 0
+
+    # Video writer to save the frames after inference
+    res_vid = cv2.VideoWriter(f'{filename[:-4]}_inference.avi',
+                              cv2.VideoWriter_fourcc(*'MJPG'),
+                              20.0, (960, 576))
+    
+    
     while cap.isOpened():
         (ret, frame) = cap.read()
         if ret:
@@ -124,16 +134,20 @@ def pose_estimation_video(model, filename):
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             output, frame = run_inference(model, frame)
             frame, kpts = draw_keypoints(model, output, frame)
-            
+
             # Display if people are looking at the camera or not
             for _, kpt in enumerate(kpts):
                 looking_front = person_front_detection(kpt)
-                draw_label(kpt, looking_front, frame)
+                frame = draw_label(kpt, looking_front, frame)
 
             # After doing stuff: print the fs count
             prev_frame_time = new_frame_time
             fps = str(int(fps))
-            cv2.putText(frame, fps, (7,70), cv2.FONT_HERSHEY_SIMPLEX, 3, (100,255,0), 3, cv2.LINE_AA)
+            frame = cv2.putText(frame, fps, (7,70), cv2.FONT_HERSHEY_SIMPLEX, 3, (100,255,0), 3, cv2.LINE_AA)
+
+            # Write the frame into the video
+            res_vid.write(frame.astype('uint8'))
+
             # Show video
             cv2.imshow('Pose Estimation', frame)
         else:
@@ -142,6 +156,7 @@ def pose_estimation_video(model, filename):
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
     
+    res_vid.release()
     cap.release()
     cv2.destroyAllWindows()
 
@@ -243,13 +258,13 @@ def person_front_detection(kpts):
 def draw_label(kpts, looking_front, frame):
     if looking_front:
         # Draw a rectangle that says whether the person is looking at the camera or not
-        cv2.rectangle(frame, (int(kpts[0*3]-60), int(kpts[0*3+1]-90)), (int(kpts[0*3]+90), int(kpts[0*3+1]-130)), (50,205,50), -1)
-        cv2.putText(frame, "LOOKING", (int(kpts[0*3]-50), int(kpts[0*3+1]-100)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2, cv2.LINE_AA)
+        frame = cv2.rectangle(frame, (int(kpts[0*3]-60), int(kpts[0*3+1]-90)), (int(kpts[0*3]+90), int(kpts[0*3+1]-130)), (50,205,50), -1)
+        frame = cv2.putText(frame, "LOOKING", (int(kpts[0*3]-50), int(kpts[0*3+1]-100)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2, cv2.LINE_AA)
     else:
         # Draw a rectangle that says whether the person is looking at the camera or not
-        cv2.rectangle(frame, (int(kpts[0*3]-60), int(kpts[0*3+1]-90)), (int(kpts[0*3]+170), int(kpts[0*3+1]-130)), (50,205,50), -1)
-        cv2.putText(frame, "NOT LOOKING", (int(kpts[0*3]-50), int(kpts[0*3+1]-100)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2, cv2.LINE_AA)
-
+        frame = cv2.rectangle(frame, (int(kpts[0*3]-60), int(kpts[0*3+1]-90)), (int(kpts[0*3]+170), int(kpts[0*3+1]-130)), (50,205,50), -1)
+        frame = cv2.putText(frame, "NOT LOOKING", (int(kpts[0*3]-50), int(kpts[0*3+1]-100)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2, cv2.LINE_AA)
+    return frame
 
 def main():
     '''
